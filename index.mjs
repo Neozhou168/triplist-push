@@ -93,14 +93,27 @@ app.post("/pushPlaylist", async (req, res) => {
     if (channel.type === 15) { // 15 = Forum Channel
       console.log(`📋 Creating forum post in: ${channel.name}`);
       
-      // 在Forum频道创建新帖子
-      const thread = await channel.threads.create({
+      // 获取可用的标签
+      const availableTags = channel.availableTags || [];
+      console.log(`📌 Available tags: ${availableTags.length}`);
+      
+      // 创建帖子的配置
+      const threadConfig = {
         name: title || "New Playlist",
         message: {
           embeds: [embedData]
         }
-      });
+      };
       
+      // 如果有可用标签，使用第一个；如果没有标签要求，留空
+      if (availableTags.length > 0) {
+        threadConfig.appliedTags = [availableTags[0].id];
+        console.log(`🏷️ Using tag: ${availableTags[0].name}`);
+      } else {
+        console.log(`🏷️ No tags available, creating without tags`);
+      }
+      
+      const thread = await channel.threads.create(threadConfig);
       console.log(`📝 Forum post created: ${thread.name}`);
       
     } else if (channel.isTextBased()) {
