@@ -19,6 +19,8 @@ let botReady = false;
 
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
+  console.log(`🔧 Bot ID: ${client.user.id}`);
+  console.log(`🔧 Bot permissions in guild should include: USE_APPLICATION_COMMANDS`);
   botReady = true;
 });
 
@@ -304,7 +306,7 @@ function findBestTag(availableTags, travelType, city, title, description) {
   return availableTags[0];
 }
 
-// 接收 Base44 推送 playlist
+// 添加更详细的权限检查
 app.post("/pushPlaylist", async (req, res) => {
   const playlistData = req.body;
   const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues, relatedRoutes } = playlistData;
@@ -332,6 +334,15 @@ app.post("/pushPlaylist", async (req, res) => {
     }
 
     console.log(`📡 Channel found: ${channel.name} (${channel.type})`);
+    
+    // 检查Bot在服务器中的权限
+    const guild = channel.guild;
+    const botMember = await guild.members.fetch(client.user.id);
+    const permissions = botMember.permissions;
+    
+    console.log(`🔧 Bot permissions in guild:`, permissions.toArray());
+    console.log(`🔧 Has USE_APPLICATION_COMMANDS:`, permissions.has('UseApplicationCommands'));
+    console.log(`🔧 Has SEND_MESSAGES:`, permissions.has('SendMessages'));
 
     // 创建富文本embed
     const embed = createPlaylistEmbed(playlistData);
@@ -373,6 +384,7 @@ app.post("/pushPlaylist", async (req, res) => {
       
       const thread = await channel.threads.create(threadConfig);
       console.log(`📝 Forum post created: ${thread.name}`);
+      console.log(`🔧 Thread ID: ${thread.id} - Bot should be able to respond to interactions in this thread`);
       
       // 如果有很多venues/routes，可以发送一个follow-up消息
       if ((relatedVenues?.length || 0) + (relatedRoutes?.length || 0) > 5) {
