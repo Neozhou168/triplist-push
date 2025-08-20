@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -75,6 +76,22 @@ if (process.env.DISCORD_BOT_TOKEN) {
 
 // 2. 启动 Express API
 const app = express();
+
+// CORS配置 - 根据Base44要求
+const corsOptions = {
+  origin: [
+    'https://www.pandahoho.com',
+    'https://pandahoho.com',
+    'https://base44.app',
+    'https://*.base44.app',
+    'http://localhost:3000'  // for local development
+  ],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
+  credentials: false
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
 // 健康检查接口
