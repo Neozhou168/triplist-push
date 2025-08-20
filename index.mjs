@@ -72,12 +72,7 @@ app.post("/pushPlaylist", async (req, res) => {
 
     console.log(`📡 Channel found: ${channel.name} (${channel.type})`);
 
-    // 检查频道类型和权限
-    if (!channel.isTextBased()) {
-      throw new Error("Channel is not a text-based channel");
-    }
-
-    // 发送消息
+    // 准备消息内容
     const embedData = {
       title: title || "Untitled Playlist",
       description: description || "No description",
@@ -94,9 +89,31 @@ app.post("/pushPlaylist", async (req, res) => {
       embedData.image = { url: imageUrl };
     }
 
-    await channel.send({
-      embeds: [embedData]
-    });
+    // 根据频道类型发送消息
+    if (channel.type === 15) { // 15 = Forum Channel
+      console.log(`📋 Creating forum post in: ${channel.name}`);
+      
+      // 在Forum频道创建新帖子
+      const thread = await channel.threads.create({
+        name: title || "New Playlist",
+        message: {
+          embeds: [embedData]
+        }
+      });
+      
+      console.log(`📝 Forum post created: ${thread.name}`);
+      
+    } else if (channel.isTextBased()) {
+      console.log(`💬 Sending message to text channel: ${channel.name}`);
+      
+      // 普通文本频道直接发送
+      await channel.send({
+        embeds: [embedData]
+      });
+      
+    } else {
+      throw new Error(`Unsupported channel type: ${channel.type}. Please use a text channel or forum channel.`);
+    }
 
     console.log(`📤 Playlist pushed successfully: ${title}`);
     res.json({ success: true, message: "Playlist pushed to Discord" });
