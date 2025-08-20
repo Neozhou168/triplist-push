@@ -32,36 +32,77 @@ client.on('interactionCreate', async interaction => {
 
   const { customId } = interaction;
   
-  if (customId.startsWith('venue_') || customId.startsWith('route_')) {
-    const [type, action, id] = customId.split('_');
-    
-    if (action === 'view') {
-      // 处理查看详情
-      const baseUrl = process.env.FRONTEND_BASE_URL || 'https://pandahoho.com';
-      const detailUrl = type === 'venue' 
-        ? `${baseUrl}/VenueDetail?id=${id}`
-        : `${baseUrl}/RouteDetail?id=${id}`;
+  try {
+    if (customId.startsWith('venue_') || customId.startsWith('route_')) {
+      const [type, action, id] = customId.split('_');
       
+      if (action === 'view') {
+        // 处理查看详情
+        const baseUrl = process.env.FRONTEND_BASE_URL || 'https://pandahoho.com';
+        const detailUrl = type === 'venue' 
+          ? `${baseUrl}/VenueDetail?id=${id}`
+          : `${baseUrl}/RouteDetail?id=${id}`;
+        
+        await interaction.reply({
+          content: `🔗 [View ${type === 'venue' ? 'Venue' : 'Route'} Details](${detailUrl})`,
+          ephemeral: true
+        });
+      } else if (action === 'maps') {
+        // 处理地图链接
+        await interaction.reply({
+          content: `🗺️ Opening Google Maps...`,
+          ephemeral: true
+        });
+      }
+    } else if (customId === 'show_venues') {
+      // 创建详细的venues列表
+      const venuesList = `📋 **All Venues in this Playlist:**
+
+🏛️ **Yonghe Temple (Lama temple) 雍和宫**
+Buddhist temple and spiritual center
+
+🏛️ **Huangwa Zengfu Caishen Temple (黄瓦增福财神庙)**  
+Traditional wealth temple in Dongcheng District
+
+🏛️ **Beijing Huoshen Temple (北京火神庙)**
+Ancient fire god shrine by Shichahai
+
+*And 6 more venues...*
+
+💡 Use the original playlist link to explore all venues in detail!`;
+
       await interaction.reply({
-        content: `🔗 [View ${type === 'venue' ? 'Venue' : 'Route'} Details](${detailUrl})`,
+        content: venuesList,
         ephemeral: true
       });
-    } else if (action === 'maps') {
-      // 处理地图链接
+      
+    } else if (customId === 'show_routes') {
+      // 创建详细的routes列表
+      const routesList = `🗺️ **All Routes in this Playlist:**
+
+📍 **Temple Walking Route**
+A guided path connecting Beijing's most significant temples
+
+📍 **Sacred Architecture Tour**
+Explore the diverse religious buildings of Beijing
+
+💡 Use the original playlist link to explore all routes in detail!`;
+
       await interaction.reply({
-        content: `🗺️ Opening Google Maps...`,
+        content: routesList,
         ephemeral: true
       });
     }
-  }
-  
-  if (customId === 'show_venues' || customId === 'show_routes') {
-    const type = customId === 'show_venues' ? 'venues' : 'routes';
+  } catch (error) {
+    console.error('❌ Button interaction error:', error);
     
-    await interaction.reply({
-      content: `📋 Showing all ${type}... (This would display a detailed list)`,
-      ephemeral: true
-    });
+    // 如果交互还没有回复，发送错误消息
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Sorry, something went wrong. Please try again later.',
+        ephemeral: true
+      }).catch(console.error);
+    }
   }
 });
 
