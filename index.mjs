@@ -30,14 +30,67 @@ client.on("error", (error) => {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
+  console.log(`🔘 Button interaction received: ${interaction.customId}`);
   const { customId } = interaction;
   
   try {
-    if (customId.startsWith('venue_') || customId.startsWith('route_')) {
+    // 确保在3秒内回复，避免超时
+    if (customId === 'show_venues') {
+      console.log(`📋 Processing show_venues interaction`);
+      
+      const venuesList = `📋 **All Venues in this Playlist:**
+
+🏛️ **Featured Museums & Cultural Sites**
+Explore Beijing's rich cultural heritage through its temples, museums, and historic streets.
+
+🏛️ **Fayuan Temple 法源寺**
+Ancient Buddhist temple with beautiful gardens
+
+🏛️ **Beijing Xuannan Cultural Museum (北京宣南文化博物馆)**
+Discover the cultural history of southern Beijing
+
+🏛️ **Liulichang Cultural Street (琉璃厂文化街)**
+Historic street famous for antiques and traditional crafts
+
+*...and many more venues to explore!*
+
+💡 **Tip**: Click the playlist title above to visit the full page with detailed venue information, photos, and directions!`;
+
+      await interaction.reply({
+        content: venuesList,
+        ephemeral: true
+      });
+      
+      console.log(`✅ show_venues interaction completed successfully`);
+      
+    } else if (customId === 'show_routes') {
+      console.log(`🗺️ Processing show_routes interaction`);
+      
+      const routesList = `🗺️ **All Routes in this Playlist:**
+
+📍 **Cultural Heritage Walking Route**
+A carefully planned route connecting Beijing's most significant cultural sites
+
+📍 **Museum District Tour**
+Explore the concentrated cultural attractions in this historic area
+
+📍 **Traditional Architecture Path**
+Follow the architectural evolution through different dynasties
+
+💡 **Tip**: Click the playlist title above to access detailed route maps, timing suggestions, and step-by-step directions!`;
+
+      await interaction.reply({
+        content: routesList,
+        ephemeral: true
+      });
+      
+      console.log(`✅ show_routes interaction completed successfully`);
+      
+    } else if (customId.startsWith('venue_') || customId.startsWith('route_')) {
       const [type, action, id] = customId.split('_');
+      console.log(`🔗 Processing ${type}_${action} interaction for ID: ${id}`);
       
       if (action === 'view') {
-        // 处理查看详情
         const baseUrl = process.env.FRONTEND_BASE_URL || 'https://pandahoho.com';
         const detailUrl = type === 'venue' 
           ? `${baseUrl}/VenueDetail?id=${id}`
@@ -48,60 +101,37 @@ client.on('interactionCreate', async interaction => {
           ephemeral: true
         });
       } else if (action === 'maps') {
-        // 处理地图链接
         await interaction.reply({
-          content: `🗺️ Opening Google Maps...`,
+          content: `🗺️ Opening Google Maps for this ${type}...`,
           ephemeral: true
         });
       }
-    } else if (customId === 'show_venues') {
-      // 创建详细的venues列表
-      const venuesList = `📋 **All Venues in this Playlist:**
-
-🏛️ **Yonghe Temple (Lama temple) 雍和宫**
-Buddhist temple and spiritual center
-
-🏛️ **Huangwa Zengfu Caishen Temple (黄瓦增福财神庙)**  
-Traditional wealth temple in Dongcheng District
-
-🏛️ **Beijing Huoshen Temple (北京火神庙)**
-Ancient fire god shrine by Shichahai
-
-*And 6 more venues...*
-
-💡 Use the original playlist link to explore all venues in detail!`;
-
-      await interaction.reply({
-        content: venuesList,
-        ephemeral: true
-      });
       
-    } else if (customId === 'show_routes') {
-      // 创建详细的routes列表
-      const routesList = `🗺️ **All Routes in this Playlist:**
-
-📍 **Temple Walking Route**
-A guided path connecting Beijing's most significant temples
-
-📍 **Sacred Architecture Tour**
-Explore the diverse religious buildings of Beijing
-
-💡 Use the original playlist link to explore all routes in detail!`;
-
+      console.log(`✅ ${type}_${action} interaction completed successfully`);
+    } else {
+      console.log(`⚠️ Unknown interaction customId: ${customId}`);
       await interaction.reply({
-        content: routesList,
+        content: '❓ Unknown action. Please try again or contact support.',
         ephemeral: true
       });
     }
-  } catch (error) {
-    console.error('❌ Button interaction error:', error);
     
-    // 如果交互还没有回复，发送错误消息
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Sorry, something went wrong. Please try again later.',
-        ephemeral: true
-      }).catch(console.error);
+  } catch (error) {
+    console.error(`❌ Button interaction error for customId "${customId}":`, error);
+    console.error(`❌ Error stack:`, error.stack);
+    
+    // 尝试回复错误消息
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: `❌ Sorry, there was a technical issue. Error: ${error.message}`,
+          ephemeral: true
+        });
+      } else {
+        console.log(`⚠️ Interaction already replied/deferred, cannot send error message`);
+      }
+    } catch (replyError) {
+      console.error(`❌ Failed to send error reply:`, replyError);
     }
   }
 });
