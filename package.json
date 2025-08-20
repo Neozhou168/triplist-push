@@ -1,0 +1,16 @@
+{
+  "name": "playlist-push",
+  "version": "1.0.0",
+  "description": "Pandahoho Playlist Push Bot - send playlists from backend to Discord forums",
+  "main": "index.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "discord.js": "^14.21.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
