@@ -54,25 +54,28 @@ client.on('interactionCreate', async interaction => {
       }
 
       // 创建venues列表，每个venue有自己的地图按钮
-      let venuesList = `📋 **All Venues in this Playlist:**\n\n`;
+      let venuesList = `📋 **Venues in this Playlist:**\n\n`;
       
       // 创建动态按钮行
       const actionRows = [];
       let currentRow = new ActionRowBuilder();
       let buttonCount = 0;
       let processedVenues = 0;
+      const maxContentLength = 1800; // 留一些余量
 
       playlistData.relatedVenues.forEach((venue, index) => {
-        // 添加venue信息到文本
-        venuesList += `🏛️ **${venue.name}**\n`;
-        if (venue.description) {
-          venuesList += `${venue.description}\n`;
+        // 检查内容长度，避免超过Discord限制
+        const newContent = `🏛️ **${venue.name}**\n📍 Click button below to open in Google Maps\n\n`;
+        
+        if (venuesList.length + newContent.length > maxContentLength) {
+          venuesList += `\n*... and ${playlistData.relatedVenues.length - index} more venues*\n`;
+          return false; // 停止添加更多内容
         }
+        
+        venuesList += newContent;
         
         // 为每个venue创建地图按钮
         if (venue['Google Maps Direct URL']) {
-          venuesList += `📍 Click the "${venue.name}" button below to open in Google Maps\n\n`;
-          
           const mapButton = new ButtonBuilder()
             .setLabel(`📍 ${venue.name.length > 20 ? venue.name.substring(0, 17) + '...' : venue.name}`)
             .setStyle(ButtonStyle.Link)
@@ -91,15 +94,13 @@ client.on('interactionCreate', async interaction => {
 
           // Discord限制最多5行按钮 (25个按钮总数)
           if (actionRows.length >= 5) {
-            venuesList += `\n*Note: Only showing first ${processedVenues} venues due to Discord button limits.*\n`;
+            venuesList += `\n*Note: Showing first ${processedVenues} venues only*\n`;
             return false; // 停止循环
           }
-        } else {
-          venuesList += `📍 No map link available\n\n`;
         }
       });
 
-      venuesList += `💡 **Tip**: Click the playlist title above to visit the full page with all venue details!`;
+      venuesList += `💡 **Tip**: Click playlist title for full details!`;
 
       await interaction.reply({
         content: venuesList,
@@ -123,23 +124,26 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
-      let routesList = `🗺️ **All Routes in this Playlist:**\n\n`;
+      let routesList = `🗺️ **Routes in this Playlist:**\n\n`;
       
       // 创建routes的地图按钮
       const actionRows = [];
       let currentRow = new ActionRowBuilder();
       let buttonCount = 0;
       let processedRoutes = 0;
+      const maxContentLength = 1800; // 留一些余量
 
       playlistData.relatedRoutes.forEach((route, index) => {
-        routesList += `📍 **${route.name}**\n`;
-        if (route.description) {
-          routesList += `${route.description}\n`;
+        const newContent = `📍 **${route.name}**\n🗺️ Click button below to view route\n\n`;
+        
+        if (routesList.length + newContent.length > maxContentLength) {
+          routesList += `\n*... and ${playlistData.relatedRoutes.length - index} more routes*\n`;
+          return false;
         }
+        
+        routesList += newContent;
 
         if (route['Google Maps Direct URL']) {
-          routesList += `🗺️ Click the "${route.name}" button below to view route on Google Maps\n\n`;
-          
           const mapButton = new ButtonBuilder()
             .setLabel(`🗺️ ${route.name.length > 20 ? route.name.substring(0, 17) + '...' : route.name}`)
             .setStyle(ButtonStyle.Link)
@@ -156,15 +160,13 @@ client.on('interactionCreate', async interaction => {
           }
 
           if (actionRows.length >= 5) {
-            routesList += `\n*Note: Only showing first ${processedRoutes} routes due to Discord button limits.*\n`;
+            routesList += `\n*Note: Showing first ${processedRoutes} routes only*\n`;
             return false;
           }
-        } else {
-          routesList += `🗺️ No route map available\n\n`;
         }
       });
 
-      routesList += `💡 **Tip**: Click the playlist title above to access detailed route information!`;
+      routesList += `💡 **Tip**: Click playlist title for detailed route info!`;
 
       await interaction.reply({
         content: routesList,
