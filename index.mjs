@@ -84,6 +84,10 @@ const corsOptions = {
     'https://pandahoho.com',
     'https://base44.app',
     'https://*.base44.app',
+    // Base44 preview和开发域名
+    'https://preview--panda-hoho-2459df7e.base44.app',
+    /^https:\/\/preview--.*\.base44\.app$/,  // 匹配所有preview域名
+    /^https:\/\/.*\.base44\.app$/,           // 匹配所有base44.app子域名
     'http://localhost:3000'  // for local development
   ],
   methods: ['GET', 'POST', 'OPTIONS'],
