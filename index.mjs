@@ -53,7 +53,7 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
-      // 创建venues列表，每个venue有自己的地图按钮
+      // 创建venues列表，每个venue下面有自己的地图按钮
       let venuesList = `📋 **Venues in this Playlist:**\n\n`;
       
       // 创建动态按钮行
@@ -61,22 +61,9 @@ client.on('interactionCreate', async interaction => {
       let currentRow = new ActionRowBuilder();
       let buttonCount = 0;
       let processedVenues = 0;
-      const maxContentLength = 1800; // 留一些余量
+      const maxContentLength = 1500;
 
       playlistData.relatedVenues.forEach((venue, index) => {
-        // 调试：打印venue数据结构
-        console.log(`🔍 Venue ${index}:`, JSON.stringify(venue, null, 2));
-        
-        // 检查内容长度，避免超过Discord限制
-        const newContent = `🏛️ **${venue.name}**\n`;
-        
-        if (venuesList.length + newContent.length > maxContentLength) {
-          venuesList += `\n*... and ${playlistData.relatedVenues.length - index} more venues*\n`;
-          return false; // 停止添加更多内容
-        }
-        
-        venuesList += newContent;
-        
         // 尝试多种可能的字段名来查找Google Maps URL
         const googleMapsUrl = venue['Google Maps Direct URL'] || 
                              venue['googleMapsUrl'] || 
@@ -85,44 +72,28 @@ client.on('interactionCreate', async interaction => {
                              venue['mapUrl'] ||
                              venue['mapsUrl'];
         
-        console.log(`🗺️ Venue "${venue.name}" maps URL:`, googleMapsUrl);
+        // 计算这个venue条目的完整内容
+        const venueContent = `🏛️ **${venue.name}**\n${googleMapsUrl ? '📍 [Open in Google Maps](' + googleMapsUrl + ')\n' : ''}`;
         
-        // 为每个venue创建地图按钮
-        if (googleMapsUrl) {
-          venuesList += `📍 Maps button available\n\n`;
-          
-          const mapButton = new ButtonBuilder()
-            .setLabel(`📍 ${venue.name.length > 20 ? venue.name.substring(0, 17) + '...' : venue.name}`)
-            .setStyle(ButtonStyle.Link)
-            .setURL(googleMapsUrl);
+        if (venuesList.length + venueContent.length > maxContentLength) {
+          venuesList += `*... and ${playlistData.relatedVenues.length - index} more venues*`;
+          return false;
+        }
+        
+        venuesList += venueContent + '\n';
+        processedVenues++;
 
-          currentRow.addComponents(mapButton);
-          buttonCount++;
-          processedVenues++;
-
-          // Discord限制每行最多5个按钮
-          if (buttonCount === 5 || index === playlistData.relatedVenues.length - 1) {
-            actionRows.push(currentRow);
-            currentRow = new ActionRowBuilder();
-            buttonCount = 0;
-          }
-
-          // Discord限制最多5行按钮 (25个按钮总数)
-          if (actionRows.length >= 5) {
-            venuesList += `\n*Note: Showing first ${processedVenues} venues only*\n`;
-            return false; // 停止循环
-          }
-        } else {
-          venuesList += `❌ No maps URL found\n\n`;
-          console.log(`⚠️ No Google Maps URL found for venue: ${venue.name}`);
+        // Discord限制最多显示前25个venues
+        if (processedVenues >= 25) {
+          venuesList += `*Showing first ${processedVenues} venues*`;
+          return false;
         }
       });
 
-      venuesList += `💡 **Tip**: Click playlist title for full details!`;
+      venuesList += `💡 *Tip: Click playlist title for full details!*`;
 
       await interaction.reply({
         content: venuesList,
-        components: actionRows,
         ephemeral: true
       });
       
@@ -144,26 +115,10 @@ client.on('interactionCreate', async interaction => {
 
       let routesList = `🗺️ **Routes in this Playlist:**\n\n`;
       
-      // 创建routes的地图按钮
-      const actionRows = [];
-      let currentRow = new ActionRowBuilder();
-      let buttonCount = 0;
       let processedRoutes = 0;
-      const maxContentLength = 1800; // 留一些余量
+      const maxContentLength = 1500;
 
       playlistData.relatedRoutes.forEach((route, index) => {
-        // 调试：打印route数据结构
-        console.log(`🔍 Route ${index}:`, JSON.stringify(route, null, 2));
-        
-        const newContent = `📍 **${route.name}**\n`;
-        
-        if (routesList.length + newContent.length > maxContentLength) {
-          routesList += `\n*... and ${playlistData.relatedRoutes.length - index} more routes*\n`;
-          return false;
-        }
-        
-        routesList += newContent;
-
         // 尝试多种可能的字段名来查找Google Maps URL
         const googleMapsUrl = route['Google Maps Direct URL'] || 
                              route['googleMapsUrl'] || 
@@ -171,42 +126,29 @@ client.on('interactionCreate', async interaction => {
                              route['google_maps_url'] ||
                              route['mapUrl'] ||
                              route['mapsUrl'];
+
+        // 计算这个route条目的完整内容
+        const routeContent = `📍 **${route.name}**\n${googleMapsUrl ? '🗺️ [View Route on Google Maps](' + googleMapsUrl + ')\n' : ''}`;
         
-        console.log(`🗺️ Route "${route.name}" maps URL:`, googleMapsUrl);
+        if (routesList.length + routeContent.length > maxContentLength) {
+          routesList += `*... and ${playlistData.relatedRoutes.length - index} more routes*`;
+          return false;
+        }
+        
+        routesList += routeContent + '\n';
+        processedRoutes++;
 
-        if (googleMapsUrl) {
-          routesList += `🗺️ Maps button available\n\n`;
-          
-          const mapButton = new ButtonBuilder()
-            .setLabel(`🗺️ ${route.name.length > 20 ? route.name.substring(0, 17) + '...' : route.name}`)
-            .setStyle(ButtonStyle.Link)
-            .setURL(googleMapsUrl);
-
-          currentRow.addComponents(mapButton);
-          buttonCount++;
-          processedRoutes++;
-
-          if (buttonCount === 5 || index === playlistData.relatedRoutes.length - 1) {
-            actionRows.push(currentRow);
-            currentRow = new ActionRowBuilder();
-            buttonCount = 0;
-          }
-
-          if (actionRows.length >= 5) {
-            routesList += `\n*Note: Showing first ${processedRoutes} routes only*\n`;
-            return false;
-          }
-        } else {
-          routesList += `❌ No maps URL found\n\n`;
-          console.log(`⚠️ No Google Maps URL found for route: ${route.name}`);
+        // Discord限制最多显示前25个routes
+        if (processedRoutes >= 25) {
+          routesList += `*Showing first ${processedRoutes} routes*`;
+          return false;
         }
       });
 
-      routesList += `💡 **Tip**: Click playlist title for detailed route info!`;
+      routesList += `💡 *Tip: Click playlist title for detailed route info!*`;
 
       await interaction.reply({
         content: routesList,
-        components: actionRows,
         ephemeral: true
       });
       
