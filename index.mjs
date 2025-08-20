@@ -73,7 +73,7 @@ client.on('interactionCreate', async interaction => {
                              venue['mapsUrl'];
         
         // 计算这个venue条目的完整内容
-        const venueContent = `🏛️ **${venue.name}**\n${googleMapsUrl ? '📍 [Open in Google Maps](' + googleMapsUrl + ')\n' : ''}`;
+        const venueContent = `🏛️ **${venue.name}**\n${googleMapsUrl ? '📍 [Open in Google Maps](<' + googleMapsUrl + '>)\n' : ''}`;
         
         if (venuesList.length + venueContent.length > maxContentLength) {
           venuesList += `*... and ${playlistData.relatedVenues.length - index} more venues*`;
@@ -128,7 +128,7 @@ client.on('interactionCreate', async interaction => {
                              route['mapsUrl'];
 
         // 计算这个route条目的完整内容
-        const routeContent = `📍 **${route.name}**\n${googleMapsUrl ? '🗺️ [View Route on Google Maps](' + googleMapsUrl + ')\n' : ''}`;
+        const routeContent = `📍 **${route.name}**\n${googleMapsUrl ? '🗺️ [View Route on Google Maps](<' + googleMapsUrl + '>)\n' : ''}`;
         
         if (routesList.length + routeContent.length > maxContentLength) {
           routesList += `*... and ${playlistData.relatedRoutes.length - index} more routes*`;
