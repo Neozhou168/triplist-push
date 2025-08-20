@@ -5,6 +5,9 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// 存储playlist数据的缓存
+const playlistCache = new Map();
+
 // 1. 启动 Discord Bot
 const client = new Client({
   intents: [
@@ -36,53 +39,136 @@ client.on('interactionCreate', async interaction => {
   const { customId } = interaction;
   
   try {
-    // 确保在3秒内回复，避免超时
-    if (customId === 'show_venues') {
-      console.log(`📋 Processing show_venues interaction`);
+    if (customId.startsWith('show_venues_')) {
+      const playlistId = customId.replace('show_venues_', '');
+      const playlistData = playlistCache.get(playlistId);
       
-      const venuesList = `📋 **All Venues in this Playlist:**
+      console.log(`📋 Processing show_venues interaction for playlist: ${playlistId}`);
+      
+      if (!playlistData) {
+        await interaction.reply({
+          content: '❌ Playlist data not found. Please try refreshing.',
+          ephemeral: true
+        });
+        return;
+      }
 
-🏛️ **Featured Museums & Cultural Sites**
-Explore Beijing's rich cultural heritage through its temples, museums, and historic streets.
+      // 创建venues列表，每个venue有自己的地图按钮
+      let venuesList = `📋 **All Venues in this Playlist:**\n\n`;
+      
+      // 创建动态按钮行
+      const actionRows = [];
+      let currentRow = new ActionRowBuilder();
+      let buttonCount = 0;
+      let processedVenues = 0;
 
-🏛️ **Fayuan Temple 法源寺**
-Ancient Buddhist temple with beautiful gardens
+      playlistData.relatedVenues.forEach((venue, index) => {
+        // 添加venue信息到文本
+        venuesList += `🏛️ **${venue.name}**\n`;
+        if (venue.description) {
+          venuesList += `${venue.description}\n`;
+        }
+        
+        // 为每个venue创建地图按钮
+        if (venue['Google Maps Direct URL']) {
+          venuesList += `📍 Click the "${venue.name}" button below to open in Google Maps\n\n`;
+          
+          const mapButton = new ButtonBuilder()
+            .setLabel(`📍 ${venue.name.length > 20 ? venue.name.substring(0, 17) + '...' : venue.name}`)
+            .setStyle(ButtonStyle.Link)
+            .setURL(venue['Google Maps Direct URL']);
 
-🏛️ **Beijing Xuannan Cultural Museum (北京宣南文化博物馆)**
-Discover the cultural history of southern Beijing
+          currentRow.addComponents(mapButton);
+          buttonCount++;
+          processedVenues++;
 
-🏛️ **Liulichang Cultural Street (琉璃厂文化街)**
-Historic street famous for antiques and traditional crafts
+          // Discord限制每行最多5个按钮
+          if (buttonCount === 5 || index === playlistData.relatedVenues.length - 1) {
+            actionRows.push(currentRow);
+            currentRow = new ActionRowBuilder();
+            buttonCount = 0;
+          }
 
-*...and many more venues to explore!*
+          // Discord限制最多5行按钮 (25个按钮总数)
+          if (actionRows.length >= 5) {
+            venuesList += `\n*Note: Only showing first ${processedVenues} venues due to Discord button limits.*\n`;
+            return false; // 停止循环
+          }
+        } else {
+          venuesList += `📍 No map link available\n\n`;
+        }
+      });
 
-💡 **Tip**: Click the playlist title above to visit the full page with detailed venue information, photos, and directions!`;
+      venuesList += `💡 **Tip**: Click the playlist title above to visit the full page with all venue details!`;
 
       await interaction.reply({
         content: venuesList,
+        components: actionRows,
         ephemeral: true
       });
       
       console.log(`✅ show_venues interaction completed successfully`);
       
-    } else if (customId === 'show_routes') {
-      console.log(`🗺️ Processing show_routes interaction`);
+    } else if (customId.startsWith('show_routes_')) {
+      const playlistId = customId.replace('show_routes_', '');
+      const playlistData = playlistCache.get(playlistId);
       
-      const routesList = `🗺️ **All Routes in this Playlist:**
+      console.log(`🗺️ Processing show_routes interaction for playlist: ${playlistId}`);
+      
+      if (!playlistData) {
+        await interaction.reply({
+          content: '❌ Playlist data not found. Please try refreshing.',
+          ephemeral: true
+        });
+        return;
+      }
 
-📍 **Cultural Heritage Walking Route**
-A carefully planned route connecting Beijing's most significant cultural sites
+      let routesList = `🗺️ **All Routes in this Playlist:**\n\n`;
+      
+      // 创建routes的地图按钮
+      const actionRows = [];
+      let currentRow = new ActionRowBuilder();
+      let buttonCount = 0;
+      let processedRoutes = 0;
 
-📍 **Museum District Tour**
-Explore the concentrated cultural attractions in this historic area
+      playlistData.relatedRoutes.forEach((route, index) => {
+        routesList += `📍 **${route.name}**\n`;
+        if (route.description) {
+          routesList += `${route.description}\n`;
+        }
 
-📍 **Traditional Architecture Path**
-Follow the architectural evolution through different dynasties
+        if (route['Google Maps Direct URL']) {
+          routesList += `🗺️ Click the "${route.name}" button below to view route on Google Maps\n\n`;
+          
+          const mapButton = new ButtonBuilder()
+            .setLabel(`🗺️ ${route.name.length > 20 ? route.name.substring(0, 17) + '...' : route.name}`)
+            .setStyle(ButtonStyle.Link)
+            .setURL(route['Google Maps Direct URL']);
 
-💡 **Tip**: Click the playlist title above to access detailed route maps, timing suggestions, and step-by-step directions!`;
+          currentRow.addComponents(mapButton);
+          buttonCount++;
+          processedRoutes++;
+
+          if (buttonCount === 5 || index === playlistData.relatedRoutes.length - 1) {
+            actionRows.push(currentRow);
+            currentRow = new ActionRowBuilder();
+            buttonCount = 0;
+          }
+
+          if (actionRows.length >= 5) {
+            routesList += `\n*Note: Only showing first ${processedRoutes} routes due to Discord button limits.*\n`;
+            return false;
+          }
+        } else {
+          routesList += `🗺️ No route map available\n\n`;
+        }
+      });
+
+      routesList += `💡 **Tip**: Click the playlist title above to access detailed route information!`;
 
       await interaction.reply({
         content: routesList,
+        components: actionRows,
         ephemeral: true
       });
       
@@ -176,7 +262,8 @@ app.get("/", (req, res) => {
   res.json({ 
     status: "ok", 
     botReady: botReady,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    cachedPlaylists: playlistCache.size
   });
 });
 
@@ -229,7 +316,7 @@ function createPlaylistEmbed(playlistData) {
 }
 
 // 创建交互按钮
-function createInteractionButtons(relatedVenues = [], relatedRoutes = []) {
+function createInteractionButtons(relatedVenues = [], relatedRoutes = [], playlistId) {
   const rows = [];
   
   // 如果有多个venues/routes，创建选择按钮
@@ -237,20 +324,31 @@ function createInteractionButtons(relatedVenues = [], relatedRoutes = []) {
     const mainRow = new ActionRowBuilder();
     
     if (relatedVenues.length > 0) {
+      // 统计有Google Maps链接的venues数量
+      const venuesWithMaps = relatedVenues.filter(v => v['Google Maps Direct URL']).length;
+      const label = venuesWithMaps > 0 
+        ? `View Venues (${relatedVenues.length}) 📍`
+        : `View Venues (${relatedVenues.length})`;
+        
       mainRow.addComponents(
         new ButtonBuilder()
-          .setCustomId('show_venues')
-          .setLabel(`View Venues (${relatedVenues.length})`)
+          .setCustomId(`show_venues_${playlistId}`)
+          .setLabel(label)
           .setStyle(ButtonStyle.Primary)
           .setEmoji('🏛️')
       );
     }
     
     if (relatedRoutes.length > 0) {
+      const routesWithMaps = relatedRoutes.filter(r => r['Google Maps Direct URL']).length;
+      const label = routesWithMaps > 0 
+        ? `View Routes (${relatedRoutes.length}) 📍`
+        : `View Routes (${relatedRoutes.length})`;
+        
       mainRow.addComponents(
         new ButtonBuilder()
-          .setCustomId('show_routes')
-          .setLabel(`View Routes (${relatedRoutes.length})`)
+          .setCustomId(`show_routes_${playlistId}`)
+          .setLabel(label)
           .setStyle(ButtonStyle.Primary)
           .setEmoji('🗺️')
       );
@@ -312,6 +410,18 @@ app.post("/pushPlaylist", async (req, res) => {
   const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues, relatedRoutes } = playlistData;
 
   try {
+    // 生成唯一的playlist ID
+    const playlistId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    
+    // 缓存playlist数据以供按钮交互使用
+    playlistCache.set(playlistId, playlistData);
+    
+    // 在30分钟后清理缓存
+    setTimeout(() => {
+      playlistCache.delete(playlistId);
+      console.log(`🗑️ Cleaned up cache for playlist: ${playlistId}`);
+    }, 30 * 60 * 1000);
+
     // 检查Bot是否准备好
     if (!botReady) {
       throw new Error("Discord bot is not ready yet");
@@ -324,7 +434,12 @@ app.post("/pushPlaylist", async (req, res) => {
     }
 
     console.log(`🔍 Attempting to fetch channel: ${channelId}`);
-    console.log(`📊 Playlist data: ${title}, Travel Type: ${travelType}, Venues: ${relatedVenues?.length || 0}, Routes: ${relatedRoutes?.length || 0}`);
+    console.log(`📊 Playlist data: ${title} (ID: ${playlistId}), Travel Type: ${travelType}, Venues: ${relatedVenues?.length || 0}, Routes: ${relatedRoutes?.length || 0}`);
+    
+    // 统计有Google Maps链接的数量
+    const venuesWithMaps = relatedVenues?.filter(v => v['Google Maps Direct URL'])?.length || 0;
+    const routesWithMaps = relatedRoutes?.filter(r => r['Google Maps Direct URL'])?.length || 0;
+    console.log(`🗺️ Venues with Google Maps: ${venuesWithMaps}, Routes with Google Maps: ${routesWithMaps}`);
     
     // 获取频道
     const channel = await client.channels.fetch(channelId);
@@ -348,7 +463,7 @@ app.post("/pushPlaylist", async (req, res) => {
     const embed = createPlaylistEmbed(playlistData);
     
     // 创建交互按钮
-    const components = createInteractionButtons(relatedVenues, relatedRoutes);
+    const components = createInteractionButtons(relatedVenues, relatedRoutes, playlistId);
 
     // 准备消息内容
     const messageData = {
@@ -409,10 +524,13 @@ app.post("/pushPlaylist", async (req, res) => {
     res.json({ 
       success: true, 
       message: "Playlist pushed to Discord",
+      playlistId: playlistId,
       stats: {
         travelType: travelType,
         venues: relatedVenues?.length || 0,
-        routes: relatedRoutes?.length || 0
+        routes: relatedRoutes?.length || 0,
+        venuesWithMaps: venuesWithMaps,
+        routesWithMaps: routesWithMaps
       }
     });
 
