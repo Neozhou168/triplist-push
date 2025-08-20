@@ -64,8 +64,11 @@ client.on('interactionCreate', async interaction => {
       const maxContentLength = 1800; // 留一些余量
 
       playlistData.relatedVenues.forEach((venue, index) => {
+        // 调试：打印venue数据结构
+        console.log(`🔍 Venue ${index}:`, JSON.stringify(venue, null, 2));
+        
         // 检查内容长度，避免超过Discord限制
-        const newContent = `🏛️ **${venue.name}**\n📍 Click button below to open in Google Maps\n\n`;
+        const newContent = `🏛️ **${venue.name}**\n`;
         
         if (venuesList.length + newContent.length > maxContentLength) {
           venuesList += `\n*... and ${playlistData.relatedVenues.length - index} more venues*\n`;
@@ -74,12 +77,24 @@ client.on('interactionCreate', async interaction => {
         
         venuesList += newContent;
         
+        // 尝试多种可能的字段名来查找Google Maps URL
+        const googleMapsUrl = venue['Google Maps Direct URL'] || 
+                             venue['googleMapsUrl'] || 
+                             venue['googleMapsDirectUrl'] || 
+                             venue['google_maps_url'] ||
+                             venue['mapUrl'] ||
+                             venue['mapsUrl'];
+        
+        console.log(`🗺️ Venue "${venue.name}" maps URL:`, googleMapsUrl);
+        
         // 为每个venue创建地图按钮
-        if (venue['Google Maps Direct URL']) {
+        if (googleMapsUrl) {
+          venuesList += `📍 Maps button available\n\n`;
+          
           const mapButton = new ButtonBuilder()
             .setLabel(`📍 ${venue.name.length > 20 ? venue.name.substring(0, 17) + '...' : venue.name}`)
             .setStyle(ButtonStyle.Link)
-            .setURL(venue['Google Maps Direct URL']);
+            .setURL(googleMapsUrl);
 
           currentRow.addComponents(mapButton);
           buttonCount++;
@@ -97,6 +112,9 @@ client.on('interactionCreate', async interaction => {
             venuesList += `\n*Note: Showing first ${processedVenues} venues only*\n`;
             return false; // 停止循环
           }
+        } else {
+          venuesList += `❌ No maps URL found\n\n`;
+          console.log(`⚠️ No Google Maps URL found for venue: ${venue.name}`);
         }
       });
 
@@ -134,7 +152,10 @@ client.on('interactionCreate', async interaction => {
       const maxContentLength = 1800; // 留一些余量
 
       playlistData.relatedRoutes.forEach((route, index) => {
-        const newContent = `📍 **${route.name}**\n🗺️ Click button below to view route\n\n`;
+        // 调试：打印route数据结构
+        console.log(`🔍 Route ${index}:`, JSON.stringify(route, null, 2));
+        
+        const newContent = `📍 **${route.name}**\n`;
         
         if (routesList.length + newContent.length > maxContentLength) {
           routesList += `\n*... and ${playlistData.relatedRoutes.length - index} more routes*\n`;
@@ -143,11 +164,23 @@ client.on('interactionCreate', async interaction => {
         
         routesList += newContent;
 
-        if (route['Google Maps Direct URL']) {
+        // 尝试多种可能的字段名来查找Google Maps URL
+        const googleMapsUrl = route['Google Maps Direct URL'] || 
+                             route['googleMapsUrl'] || 
+                             route['googleMapsDirectUrl'] || 
+                             route['google_maps_url'] ||
+                             route['mapUrl'] ||
+                             route['mapsUrl'];
+        
+        console.log(`🗺️ Route "${route.name}" maps URL:`, googleMapsUrl);
+
+        if (googleMapsUrl) {
+          routesList += `🗺️ Maps button available\n\n`;
+          
           const mapButton = new ButtonBuilder()
             .setLabel(`🗺️ ${route.name.length > 20 ? route.name.substring(0, 17) + '...' : route.name}`)
             .setStyle(ButtonStyle.Link)
-            .setURL(route['Google Maps Direct URL']);
+            .setURL(googleMapsUrl);
 
           currentRow.addComponents(mapButton);
           buttonCount++;
@@ -163,6 +196,9 @@ client.on('interactionCreate', async interaction => {
             routesList += `\n*Note: Showing first ${processedRoutes} routes only*\n`;
             return false;
           }
+        } else {
+          routesList += `❌ No maps URL found\n\n`;
+          console.log(`⚠️ No Google Maps URL found for route: ${route.name}`);
         }
       });
 
@@ -326,8 +362,15 @@ function createInteractionButtons(relatedVenues = [], relatedRoutes = [], playli
     const mainRow = new ActionRowBuilder();
     
     if (relatedVenues.length > 0) {
-      // 统计有Google Maps链接的venues数量
-      const venuesWithMaps = relatedVenues.filter(v => v['Google Maps Direct URL']).length;
+      // 统计有Google Maps链接的venues数量 - 支持多种字段名
+      const venuesWithMaps = relatedVenues.filter(v => 
+        v['Google Maps Direct URL'] || 
+        v['googleMapsUrl'] || 
+        v['googleMapsDirectUrl'] || 
+        v['google_maps_url'] ||
+        v['mapUrl'] ||
+        v['mapsUrl']
+      ).length;
       const label = venuesWithMaps > 0 
         ? `View Venues (${relatedVenues.length}) 📍`
         : `View Venues (${relatedVenues.length})`;
@@ -342,7 +385,14 @@ function createInteractionButtons(relatedVenues = [], relatedRoutes = [], playli
     }
     
     if (relatedRoutes.length > 0) {
-      const routesWithMaps = relatedRoutes.filter(r => r['Google Maps Direct URL']).length;
+      const routesWithMaps = relatedRoutes.filter(r => 
+        r['Google Maps Direct URL'] || 
+        r['googleMapsUrl'] || 
+        r['googleMapsDirectUrl'] || 
+        r['google_maps_url'] ||
+        r['mapUrl'] ||
+        r['mapsUrl']
+      ).length;
       const label = routesWithMaps > 0 
         ? `View Routes (${relatedRoutes.length}) 📍`
         : `View Routes (${relatedRoutes.length})`;
@@ -438,9 +488,24 @@ app.post("/pushPlaylist", async (req, res) => {
     console.log(`🔍 Attempting to fetch channel: ${channelId}`);
     console.log(`📊 Playlist data: ${title} (ID: ${playlistId}), Travel Type: ${travelType}, Venues: ${relatedVenues?.length || 0}, Routes: ${relatedRoutes?.length || 0}`);
     
-    // 统计有Google Maps链接的数量
-    const venuesWithMaps = relatedVenues?.filter(v => v['Google Maps Direct URL'])?.length || 0;
-    const routesWithMaps = relatedRoutes?.filter(r => r['Google Maps Direct URL'])?.length || 0;
+    // 统计有Google Maps链接的数量 - 支持多种字段名
+    const venuesWithMaps = relatedVenues?.filter(v => 
+      v['Google Maps Direct URL'] || 
+      v['googleMapsUrl'] || 
+      v['googleMapsDirectUrl'] || 
+      v['google_maps_url'] ||
+      v['mapUrl'] ||
+      v['mapsUrl']
+    )?.length || 0;
+    
+    const routesWithMaps = relatedRoutes?.filter(r => 
+      r['Google Maps Direct URL'] || 
+      r['googleMapsUrl'] || 
+      r['googleMapsDirectUrl'] || 
+      r['google_maps_url'] ||
+      r['mapUrl'] ||
+      r['mapsUrl']
+    )?.length || 0;
     console.log(`🗺️ Venues with Google Maps: ${venuesWithMaps}, Routes with Google Maps: ${routesWithMaps}`);
     
     // 获取频道
