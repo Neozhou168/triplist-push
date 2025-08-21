@@ -232,13 +232,17 @@ function createDirectLinkButtons(relatedVenues = [], relatedRoutes = [], pageUrl
     
     const totalItems = relatedVenues.length + relatedRoutes.length;
     
-    // 方案A: 只显示一个主按钮
+    // 方案A: 直接定位到"Related Routes & Venues"部分
+    const targetUrl = `${pageUrl}#related-routes-venues`;
+    
     mainRow.addComponents(
       new ButtonBuilder()
         .setLabel(`🌟 View Complete Playlist (${totalItems} items)`)
         .setStyle(ButtonStyle.Link)
-        .setURL(pageUrl)
+        .setURL(targetUrl)
     );
+    
+    console.log(`🔗 Button URL with anchor: ${targetUrl}`);
     
     rows.push(mainRow);
   }
@@ -332,6 +336,14 @@ app.post("/pushPlaylist", async (req, res) => {
     }
 
     console.log(`📡 Channel found: ${channel.name} (${channel.type})`);
+    console.log(`🔍 Channel details:`, {
+      id: channel.id,
+      name: channel.name,
+      type: channel.type,
+      isForumChannel: channel.type === 15,
+      parentId: channel.parentId || 'None',
+      availableTags: channel.availableTags?.length || 0
+    });
     
     // 检查Bot在服务器中的权限
     const guild = channel.guild;
@@ -362,6 +374,14 @@ app.post("/pushPlaylist", async (req, res) => {
       const availableTags = channel.availableTags || [];
       console.log(`📌 Available tags: ${availableTags.length}`);
       
+      // 详细分析Forum频道设置
+      console.log(`🔍 Forum channel analysis:`, {
+        defaultAutoArchiveDuration: channel.defaultAutoArchiveDuration,
+        defaultThreadRateLimitPerUser: channel.defaultThreadRateLimitPerUser,
+        flags: channel.flags?.toArray(),
+        defaultReactionEmoji: channel.defaultReactionEmoji
+      });
+      
       // 创建帖子的配置
       const threadConfig = {
         name: title || "New Playlist",
@@ -384,8 +404,21 @@ app.post("/pushPlaylist", async (req, res) => {
       console.log(`📝 Forum post created: ${thread.name}`);
       console.log(`🔗 Thread URL: https://discord.com/channels/${guild.id}/${thread.id}`);
       
+      // 分析创建的thread
+      console.log(`🧵 Thread details:`, {
+        id: thread.id,
+        name: thread.name,
+        type: thread.type,
+        appliedTags: thread.appliedTags?.length || 0
+      });
+      
     } else if (channel.isTextBased()) {
       console.log(`💬 Sending message to text channel: ${channel.name}`);
+      console.log(`📊 Text channel details:`, {
+        type: channel.type,
+        isThread: channel.isThread(),
+        parentId: channel.parentId
+      });
       
       // 普通文本频道直接发送
       await channel.send(messageData);
@@ -438,14 +471,22 @@ app.get("/admin/channels", async (req, res) => {
             id: channelId,
             name: channel.name,
             type: channel.type,
-            status: 'Connected'
+            status: 'Connected',
+            // 添加Forum频道特有的设置分析
+            isForumChannel: channel.type === 15,
+            availableTags: channel.availableTags?.length || 0,
+            defaultAutoArchiveDuration: channel.defaultAutoArchiveDuration || 'Not set',
+            flags: channel.flags?.toArray() || [],
+            parentId: channel.parentId || 'None'
           };
         } catch (error) {
           channelDetails[city] = {
             id: channelId,
             name: 'Unknown',
             type: 'Unknown',
-            status: 'Error - Channel not found'
+            status: 'Error - Channel not found',
+            isForumChannel: false,
+            availableTags: 0
           };
         }
       } else {
@@ -453,7 +494,9 @@ app.get("/admin/channels", async (req, res) => {
           id: null,
           name: null,
           type: null,
-          status: 'Not Configured'
+          status: 'Not Configured',
+          isForumChannel: false,
+          availableTags: 0
         };
       }
     }
