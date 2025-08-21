@@ -5,9 +5,6 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// 存储playlist数据的缓存
-const playlistCache = new Map();
-
 // 1. 启动 Discord Bot
 const client = new Client({
   intents: [
@@ -29,179 +26,6 @@ client.once("ready", () => {
 
 client.on("error", (error) => {
   console.error("❌ Discord client error:", error);
-});
-
-// 处理按钮交互
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isButton()) return;
-
-  console.log(`🔘 Button interaction received: ${interaction.customId}`);
-  const { customId } = interaction;
-  
-  try {
-    if (customId.startsWith('show_venues_')) {
-      const playlistId = customId.replace('show_venues_', '');
-      const playlistData = playlistCache.get(playlistId);
-      
-      console.log(`📋 Processing show_venues interaction for playlist: ${playlistId}`);
-      
-      if (!playlistData) {
-        await interaction.reply({
-          content: '❌ Playlist data not found. Please try refreshing.',
-          ephemeral: true
-        });
-        return;
-      }
-
-      // 创建venues列表，每个venue下面有自己的地图按钮
-      let venuesList = `📋 **Venues in this Playlist:**\n\n`;
-      
-      // 创建动态按钮行
-      const actionRows = [];
-      let currentRow = new ActionRowBuilder();
-      let buttonCount = 0;
-      let processedVenues = 0;
-      const maxContentLength = 1500;
-
-      playlistData.relatedVenues.forEach((venue, index) => {
-        // 尝试多种可能的字段名来查找Google Maps URL
-        const googleMapsUrl = venue['Google Maps Direct URL'] || 
-                             venue['googleMapsUrl'] || 
-                             venue['googleMapsDirectUrl'] || 
-                             venue['google_maps_url'] ||
-                             venue['mapUrl'] ||
-                             venue['mapsUrl'];
-        
-        // 计算这个venue条目的完整内容
-        const venueContent = `🏛️ **${venue.name}**\n${googleMapsUrl ? '📍 [Open in Google Maps](<' + googleMapsUrl + '>)\n' : ''}`;
-        
-        if (venuesList.length + venueContent.length > maxContentLength) {
-          venuesList += `*... and ${playlistData.relatedVenues.length - index} more venues*`;
-          return false;
-        }
-        
-        venuesList += venueContent + '\n';
-        processedVenues++;
-
-        // Discord限制最多显示前25个venues
-        if (processedVenues >= 25) {
-          venuesList += `*Showing first ${processedVenues} venues*`;
-          return false;
-        }
-      });
-
-      venuesList += `💡 *Tip: Click playlist title for full details!*`;
-
-      await interaction.reply({
-        content: venuesList,
-        ephemeral: true
-      });
-      
-      console.log(`✅ show_venues interaction completed successfully`);
-      
-    } else if (customId.startsWith('show_routes_')) {
-      const playlistId = customId.replace('show_routes_', '');
-      const playlistData = playlistCache.get(playlistId);
-      
-      console.log(`🗺️ Processing show_routes interaction for playlist: ${playlistId}`);
-      
-      if (!playlistData) {
-        await interaction.reply({
-          content: '❌ Playlist data not found. Please try refreshing.',
-          ephemeral: true
-        });
-        return;
-      }
-
-      let routesList = `🗺️ **Routes in this Playlist:**\n\n`;
-      
-      let processedRoutes = 0;
-      const maxContentLength = 1500;
-
-      playlistData.relatedRoutes.forEach((route, index) => {
-        // 尝试多种可能的字段名来查找Google Maps URL
-        const googleMapsUrl = route['Google Maps Direct URL'] || 
-                             route['googleMapsUrl'] || 
-                             route['googleMapsDirectUrl'] || 
-                             route['google_maps_url'] ||
-                             route['mapUrl'] ||
-                             route['mapsUrl'];
-
-        // 计算这个route条目的完整内容
-        const routeContent = `📍 **${route.name}**\n${googleMapsUrl ? '🗺️ [View Route on Google Maps](<' + googleMapsUrl + '>)\n' : ''}`;
-        
-        if (routesList.length + routeContent.length > maxContentLength) {
-          routesList += `*... and ${playlistData.relatedRoutes.length - index} more routes*`;
-          return false;
-        }
-        
-        routesList += routeContent + '\n';
-        processedRoutes++;
-
-        // Discord限制最多显示前25个routes
-        if (processedRoutes >= 25) {
-          routesList += `*Showing first ${processedRoutes} routes*`;
-          return false;
-        }
-      });
-
-      routesList += `💡 *Tip: Click playlist title for detailed route info!*`;
-
-      await interaction.reply({
-        content: routesList,
-        ephemeral: true
-      });
-      
-      console.log(`✅ show_routes interaction completed successfully`);
-      
-    } else if (customId.startsWith('venue_') || customId.startsWith('route_')) {
-      const [type, action, id] = customId.split('_');
-      console.log(`🔗 Processing ${type}_${action} interaction for ID: ${id}`);
-      
-      if (action === 'view') {
-        const baseUrl = process.env.FRONTEND_BASE_URL || 'https://pandahoho.com';
-        const detailUrl = type === 'venue' 
-          ? `${baseUrl}/VenueDetail?id=${id}`
-          : `${baseUrl}/RouteDetail?id=${id}`;
-        
-        await interaction.reply({
-          content: `🔗 [View ${type === 'venue' ? 'Venue' : 'Route'} Details](${detailUrl})`,
-          ephemeral: true
-        });
-      } else if (action === 'maps') {
-        await interaction.reply({
-          content: `🗺️ Opening Google Maps for this ${type}...`,
-          ephemeral: true
-        });
-      }
-      
-      console.log(`✅ ${type}_${action} interaction completed successfully`);
-    } else {
-      console.log(`⚠️ Unknown interaction customId: ${customId}`);
-      await interaction.reply({
-        content: '❓ Unknown action. Please try again or contact support.',
-        ephemeral: true
-      });
-    }
-    
-  } catch (error) {
-    console.error(`❌ Button interaction error for customId "${customId}":`, error);
-    console.error(`❌ Error stack:`, error.stack);
-    
-    // 尝试回复错误消息
-    try {
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: `❌ Sorry, there was a technical issue. Error: ${error.message}`,
-          ephemeral: true
-        });
-      } else {
-        console.log(`⚠️ Interaction already replied/deferred, cannot send error message`);
-      }
-    } catch (replyError) {
-      console.error(`❌ Failed to send error reply:`, replyError);
-    }
-  }
 });
 
 // 登录Discord Bot
@@ -237,15 +61,77 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
-// 健康检查接口
-app.get("/", (req, res) => {
-  res.json({ 
-    status: "ok", 
-    botReady: botReady,
-    timestamp: new Date().toISOString(),
-    cachedPlaylists: playlistCache.size
+// 城市频道映射配置
+const CITY_CHANNELS = {
+  // 中文城市名映射
+  '北京': process.env.BEIJING_CHANNEL,
+  '上海': process.env.SHANGHAI_CHANNEL,
+  '成都': process.env.CHENGDU_CHANNEL,
+  '广州': process.env.GUANGZHOU_CHANNEL,
+  '深圳': process.env.SHENZHEN_CHANNEL,
+  '杭州': process.env.HANGZHOU_CHANNEL,
+  '南京': process.env.NANJING_CHANNEL,
+  '西安': process.env.XIAN_CHANNEL,
+  '重庆': process.env.CHONGQING_CHANNEL,
+  '天津': process.env.TIANJIN_CHANNEL,
+  
+  // 英文城市名映射
+  'beijing': process.env.BEIJING_CHANNEL,
+  'shanghai': process.env.SHANGHAI_CHANNEL,
+  'chengdu': process.env.CHENGDU_CHANNEL,
+  'guangzhou': process.env.GUANGZHOU_CHANNEL,
+  'shenzhen': process.env.SHENZHEN_CHANNEL,
+  'hangzhou': process.env.HANGZHOU_CHANNEL,
+  'nanjing': process.env.NANJING_CHANNEL,
+  'xian': process.env.XIAN_CHANNEL,
+  'chongqing': process.env.CHONGQING_CHANNEL,
+  'tianjin': process.env.TIANJIN_CHANNEL,
+  
+  // 备用默认频道
+  'default': process.env.DEFAULT_CHANNEL || process.env.TEST_CHANNEL_ID
+};
+
+// 智能城市匹配函数
+function getChannelIdByCity(city) {
+  if (!city) {
+    console.log('⚠️ No city provided, using default channel');
+    return CITY_CHANNELS.default;
+  }
+  
+  // 清理城市名称（去除空格、特殊字符，转为小写）
+  const cleanCity = city.trim().toLowerCase().replace(/[^a-z\u4e00-\u9fa5]/g, '');
+  
+  // 直接匹配
+  if (CITY_CHANNELS[cleanCity]) {
+    console.log(`📍 Found direct match for city: ${city} -> ${cleanCity}`);
+    return CITY_CHANNELS[cleanCity];
+  }
+  
+  // 模糊匹配（检查是否包含关键词）
+  const cityKeys = Object.keys(CITY_CHANNELS);
+  const matchedKey = cityKeys.find(key => {
+    if (key === 'default') return false;
+    return cleanCity.includes(key) || key.includes(cleanCity);
   });
-});
+  
+  if (matchedKey) {
+    console.log(`📍 Found fuzzy match for city: ${city} -> ${matchedKey}`);
+    return CITY_CHANNELS[matchedKey];
+  }
+  
+  // 没有匹配，使用默认频道
+  console.log(`📍 No match found for city: ${city}, using default channel`);
+  return CITY_CHANNELS.default;
+}
+
+// 获取城市频道配置状态
+function getCityChannelStatus() {
+  const status = {};
+  Object.entries(CITY_CHANNELS).forEach(([city, channelId]) => {
+    status[city] = channelId ? 'Set' : 'Not Set';
+  });
+  return status;
+}
 
 // 创建富文本embed
 function createPlaylistEmbed(playlistData) {
@@ -295,58 +181,36 @@ function createPlaylistEmbed(playlistData) {
   return embed;
 }
 
-// 创建交互按钮
-function createInteractionButtons(relatedVenues = [], relatedRoutes = [], playlistId) {
+// 健康检查接口 - 显示城市频道配置状态
+app.get("/", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    botReady: botReady,
+    timestamp: new Date().toISOString(),
+    version: "3.1 - Multi-City Channels",
+    cityChannels: getCityChannelStatus()
+  });
+});
+function createDirectLinkButtons(relatedVenues = [], relatedRoutes = [], pageUrl) {
   const rows = [];
   
-  // 如果有多个venues/routes，创建选择按钮
+  if (!pageUrl) {
+    console.log('⚠️ No pageUrl provided, skipping button creation');
+    return rows;
+  }
+  
   if (relatedVenues.length > 0 || relatedRoutes.length > 0) {
     const mainRow = new ActionRowBuilder();
     
-    if (relatedVenues.length > 0) {
-      // 统计有Google Maps链接的venues数量 - 支持多种字段名
-      const venuesWithMaps = relatedVenues.filter(v => 
-        v['Google Maps Direct URL'] || 
-        v['googleMapsUrl'] || 
-        v['googleMapsDirectUrl'] || 
-        v['google_maps_url'] ||
-        v['mapUrl'] ||
-        v['mapsUrl']
-      ).length;
-      const label = venuesWithMaps > 0 
-        ? `View Venues (${relatedVenues.length}) 📍`
-        : `View Venues (${relatedVenues.length})`;
-        
-      mainRow.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`show_venues_${playlistId}`)
-          .setLabel(label)
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('🏛️')
-      );
-    }
+    const totalItems = relatedVenues.length + relatedRoutes.length;
     
-    if (relatedRoutes.length > 0) {
-      const routesWithMaps = relatedRoutes.filter(r => 
-        r['Google Maps Direct URL'] || 
-        r['googleMapsUrl'] || 
-        r['googleMapsDirectUrl'] || 
-        r['google_maps_url'] ||
-        r['mapUrl'] ||
-        r['mapsUrl']
-      ).length;
-      const label = routesWithMaps > 0 
-        ? `View Routes (${relatedRoutes.length}) 📍`
-        : `View Routes (${relatedRoutes.length})`;
-        
-      mainRow.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`show_routes_${playlistId}`)
-          .setLabel(label)
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('🗺️')
-      );
-    }
+    // 方案A: 只显示一个主按钮
+    mainRow.addComponents(
+      new ButtonBuilder()
+        .setLabel(`🌟 View Complete Playlist (${totalItems} items)`)
+        .setStyle(ButtonStyle.Link)
+        .setURL(pageUrl)
+    );
     
     rows.push(mainRow);
   }
@@ -398,57 +262,27 @@ function findBestTag(availableTags, travelType, city, title, description) {
   return availableTags[0];
 }
 
-// 添加更详细的权限检查
+// 主要API端点 - 推送playlist到Discord
 app.post("/pushPlaylist", async (req, res) => {
   const playlistData = req.body;
   const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues, relatedRoutes } = playlistData;
 
   try {
-    // 生成唯一的playlist ID
-    const playlistId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-    
-    // 缓存playlist数据以供按钮交互使用
-    playlistCache.set(playlistId, playlistData);
-    
-    // 在30分钟后清理缓存
-    setTimeout(() => {
-      playlistCache.delete(playlistId);
-      console.log(`🗑️ Cleaned up cache for playlist: ${playlistId}`);
-    }, 30 * 60 * 1000);
-
     // 检查Bot是否准备好
     if (!botReady) {
       throw new Error("Discord bot is not ready yet");
     }
 
-    // 检查环境变量
-    const channelId = process.env.TEST_CHANNEL_ID;
+    // 根据城市选择对应的频道ID
+    const channelId = getChannelIdByCity(city);
     if (!channelId) {
-      throw new Error("TEST_CHANNEL_ID not found in environment variables");
+      throw new Error("No suitable channel found. Please check city channel configuration.");
     }
 
-    console.log(`🔍 Attempting to fetch channel: ${channelId}`);
-    console.log(`📊 Playlist data: ${title} (ID: ${playlistId}), Travel Type: ${travelType}, Venues: ${relatedVenues?.length || 0}, Routes: ${relatedRoutes?.length || 0}`);
-    
-    // 统计有Google Maps链接的数量 - 支持多种字段名
-    const venuesWithMaps = relatedVenues?.filter(v => 
-      v['Google Maps Direct URL'] || 
-      v['googleMapsUrl'] || 
-      v['googleMapsDirectUrl'] || 
-      v['google_maps_url'] ||
-      v['mapUrl'] ||
-      v['mapsUrl']
-    )?.length || 0;
-    
-    const routesWithMaps = relatedRoutes?.filter(r => 
-      r['Google Maps Direct URL'] || 
-      r['googleMapsUrl'] || 
-      r['googleMapsDirectUrl'] || 
-      r['google_maps_url'] ||
-      r['mapUrl'] ||
-      r['mapsUrl']
-    )?.length || 0;
-    console.log(`🗺️ Venues with Google Maps: ${venuesWithMaps}, Routes with Google Maps: ${routesWithMaps}`);
+    console.log(`🔍 Processing playlist: ${title}`);
+    console.log(`📊 City: ${city || 'Unknown'}, Venues: ${relatedVenues?.length || 0}, Routes: ${relatedRoutes?.length || 0}`);
+    console.log(`📍 Selected channel ID: ${channelId}`);
+    console.log(`🔗 Page URL: ${pageUrl || 'No URL provided'}`);
     
     // 获取频道
     const channel = await client.channels.fetch(channelId);
@@ -471,8 +305,8 @@ app.post("/pushPlaylist", async (req, res) => {
     // 创建富文本embed
     const embed = createPlaylistEmbed(playlistData);
     
-    // 创建交互按钮
-    const components = createInteractionButtons(relatedVenues, relatedRoutes, playlistId);
+    // 创建直接跳转按钮
+    const components = createDirectLinkButtons(relatedVenues, relatedRoutes, pageUrl);
 
     // 准备消息内容
     const messageData = {
@@ -508,16 +342,7 @@ app.post("/pushPlaylist", async (req, res) => {
       
       const thread = await channel.threads.create(threadConfig);
       console.log(`📝 Forum post created: ${thread.name}`);
-      console.log(`🔧 Thread ID: ${thread.id} - Bot should be able to respond to interactions in this thread`);
-      
-      // 如果有很多venues/routes，可以发送一个follow-up消息
-      if ((relatedVenues?.length || 0) + (relatedRoutes?.length || 0) > 5) {
-        setTimeout(async () => {
-          await thread.send({
-            content: `💡 **Tip**: This playlist contains ${relatedVenues?.length || 0} venues and ${relatedRoutes?.length || 0} routes. Use the buttons above to explore them all!`,
-          });
-        }, 1000);
-      }
+      console.log(`🔗 Thread URL: https://discord.com/channels/${guild.id}/${thread.id}`);
       
     } else if (channel.isTextBased()) {
       console.log(`💬 Sending message to text channel: ${channel.name}`);
@@ -529,17 +354,21 @@ app.post("/pushPlaylist", async (req, res) => {
       throw new Error(`Unsupported channel type: ${channel.type}. Please use a text channel or forum channel.`);
     }
 
-    console.log(`📤 Playlist pushed successfully: ${title}`);
+      console.log(`📤 Playlist pushed successfully to ${city || 'default'} channel: ${title}`);
     res.json({ 
       success: true, 
-      message: "Playlist pushed to Discord",
-      playlistId: playlistId,
+      message: `Playlist pushed to Discord ${city || 'default'} channel with direct website link`,
+      city: city,
+      channelId: channelId,
+      pageUrl: pageUrl,
       stats: {
         travelType: travelType,
         venues: relatedVenues?.length || 0,
         routes: relatedRoutes?.length || 0,
-        venuesWithMaps: venuesWithMaps,
-        routesWithMaps: routesWithMaps
+        totalItems: (relatedVenues?.length || 0) + (relatedRoutes?.length || 0),
+        redirect_to_website: true,
+        no_caching_needed: true,
+        button_created: pageUrl ? true : false
       }
     });
 
@@ -554,18 +383,84 @@ app.post("/pushPlaylist", async (req, res) => {
   }
 });
 
-// 新增：获取venue/route详细信息的API端点
+// 管理API - 查看城市频道配置
+app.get("/admin/channels", async (req, res) => {
+  try {
+    const cityStatus = getCityChannelStatus();
+    const channelDetails = {};
+    
+    // 获取每个频道的详细信息
+    for (const [city, channelId] of Object.entries(CITY_CHANNELS)) {
+      if (channelId) {
+        try {
+          const channel = await client.channels.fetch(channelId);
+          channelDetails[city] = {
+            id: channelId,
+            name: channel.name,
+            type: channel.type,
+            status: 'Connected'
+          };
+        } catch (error) {
+          channelDetails[city] = {
+            id: channelId,
+            name: 'Unknown',
+            type: 'Unknown',
+            status: 'Error - Channel not found'
+          };
+        }
+      } else {
+        channelDetails[city] = {
+          id: null,
+          name: null,
+          type: null,
+          status: 'Not Configured'
+        };
+      }
+    }
+    
+    res.json({
+      success: true,
+      botReady: botReady,
+      channels: channelDetails,
+      summary: {
+        total: Object.keys(CITY_CHANNELS).length,
+        configured: Object.values(CITY_CHANNELS).filter(id => id).length,
+        connected: Object.values(channelDetails).filter(ch => ch.status === 'Connected').length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// 测试API - 测试城市匹配
+app.get("/test/city/:cityName", (req, res) => {
+  const cityName = req.params.cityName;
+  const channelId = getChannelIdByCity(cityName);
+  
+  res.json({
+    input: cityName,
+    matchedChannelId: channelId,
+    isDefault: channelId === CITY_CHANNELS.default,
+    availableCities: Object.keys(CITY_CHANNELS).filter(key => key !== 'default')
+  });
+});
 app.get("/venue/:id", async (req, res) => {
   res.json({
     id: req.params.id,
-    message: "Venue details would be fetched from database"
+    message: "This endpoint is deprecated. Please use direct website links instead.",
+    redirect: `https://pandahoho.com/venue/${req.params.id}`
   });
 });
 
 app.get("/route/:id", async (req, res) => {
   res.json({
     id: req.params.id,
-    message: "Route details would be fetched from database"
+    message: "This endpoint is deprecated. Please use direct website links instead.",
+    redirect: `https://pandahoho.com/route/${req.params.id}`
   });
 });
 
@@ -574,6 +469,19 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 API running on port ${PORT}`);
   console.log(`🔑 Bot Token: ${process.env.DISCORD_BOT_TOKEN ? 'Set' : 'Not Set'}`);
-  console.log(`📺 Channel ID: ${process.env.TEST_CHANNEL_ID ? 'Set' : 'Not Set'}`);
   console.log(`🌐 Frontend Base URL: ${process.env.FRONTEND_BASE_URL || 'https://pandahoho.com'}`);
+  console.log(`✨ Version: 3.1 - Multi-City Channels Support`);
+  
+  // 显示城市频道配置状态
+  console.log(`📍 City Channels Configuration:`);
+  const cityStatus = getCityChannelStatus();
+  Object.entries(cityStatus).forEach(([city, status]) => {
+    console.log(`   ${city}: ${status}`);
+  });
+  
+  // 警告未配置的频道
+  const unsetChannels = Object.entries(cityStatus).filter(([_, status]) => status === 'Not Set');
+  if (unsetChannels.length > 0) {
+    console.log(`⚠️  Warning: ${unsetChannels.length} city channels are not configured`);
+  }
 });
