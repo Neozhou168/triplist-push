@@ -153,11 +153,39 @@ function createPlaylistEmbed(playlistData) {
     embed.setURL(pageUrl);
   }
 
+  // 优化图片显示 - 特别针对Cloudinary图片进行优化
   if (imageUrl && !imageUrl.includes('example.com')) {
-    embed.setImage(imageUrl);
+    let optimizedImageUrl = imageUrl;
+    
+    // 检测Cloudinary URL并进行优化
+    if (imageUrl.includes('cloudinary.com')) {
+      // Cloudinary URL优化：添加变换参数确保大图显示
+      const cloudinaryOptimizations = [
+        'w_1200',      // 宽度1200px
+        'h_675',       // 高度675px (16:9比例)
+        'c_fill',      // 填充模式，保持比例
+        'q_auto',      // 自动质量
+        'f_auto'       // 自动格式
+      ].join(',');
+      
+      // 在Cloudinary URL中插入变换参数
+      optimizedImageUrl = imageUrl.replace(
+        '/upload/', 
+        `/upload/${cloudinaryOptimizations}/`
+      );
+      
+      console.log(`🖼️ Cloudinary optimization applied`);
+      console.log(`📐 Original: ${imageUrl}`);
+      console.log(`✨ Optimized: ${optimizedImageUrl}`);
+    } else {
+      // 非Cloudinary图片的通用优化尝试
+      console.log(`🖼️ Non-Cloudinary image, using original: ${imageUrl}`);
+    }
+    
+    embed.setImage(optimizedImageUrl);
   }
 
-  // 添加部分景点信息到embed
+  // 添加部分景点信息到embed - 优化显示
   if (relatedVenues.length > 0) {
     const venueList = relatedVenues.slice(0, 3).map(venue => `• ${venue.name}`).join('\n');
     const moreVenues = relatedVenues.length > 3 ? `\n... and ${relatedVenues.length - 3} more` : '';
@@ -283,6 +311,18 @@ app.post("/pushPlaylist", async (req, res) => {
     console.log(`📊 City: ${city || 'Unknown'}, Venues: ${relatedVenues?.length || 0}, Routes: ${relatedRoutes?.length || 0}`);
     console.log(`📍 Selected channel ID: ${channelId}`);
     console.log(`🔗 Page URL: ${pageUrl || 'No URL provided'}`);
+    console.log(`🖼️ Image URL: ${imageUrl || 'No image provided'}`);
+    
+    // 分析图片URL以帮助调试
+    if (imageUrl) {
+      const imageAnalysis = {
+        hasExtension: /\.(jpg|jpeg|png|gif|webp)$/i.test(imageUrl),
+        hasParameters: imageUrl.includes('?'),
+        length: imageUrl.length,
+        domain: new URL(imageUrl).hostname
+      };
+      console.log(`🔍 Image analysis:`, imageAnalysis);
+    }
     
     // 获取频道
     const channel = await client.channels.fetch(channelId);
