@@ -138,7 +138,7 @@ function createPlaylistEmbed(playlistData) {
   const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues = [], relatedRoutes = [] } = playlistData;
   
   const embed = new EmbedBuilder()
-    .setTitle(title || "Untitled Playlist")
+    .setTitle(title || "Untitled Triplist")
     .setDescription(description || "No description")
     .setColor(0x3447FF)
     .addFields(
@@ -237,7 +237,7 @@ function createDirectLinkButtons(relatedVenues = [], relatedRoutes = [], pageUrl
     
     mainRow.addComponents(
       new ButtonBuilder()
-        .setLabel(`🌟 View Complete Playlist (${totalItems} items)`)
+        .setLabel(`🌟 View ${totalItems} Venues & Routes`)
         .setStyle(ButtonStyle.Link)
         .setURL(targetUrl)
     );
@@ -294,7 +294,7 @@ function findBestTag(availableTags, travelType, city, title, description) {
   return availableTags[0];
 }
 
-// 主要API端点 - 推送playlist到Discord
+// 主要API端点 - 推送triplist到Discord
 app.post("/pushPlaylist", async (req, res) => {
   const playlistData = req.body;
   const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues, relatedRoutes } = playlistData;
@@ -311,7 +311,7 @@ app.post("/pushPlaylist", async (req, res) => {
       throw new Error("No suitable channel found. Please check city channel configuration.");
     }
 
-    console.log(`🔍 Processing playlist: ${title}`);
+    console.log(`🔍 Processing triplist: ${title}`);
     console.log(`📊 City: ${city || 'Unknown'}, Venues: ${relatedVenues?.length || 0}, Routes: ${relatedRoutes?.length || 0}`);
     console.log(`📍 Selected channel ID: ${channelId}`);
     console.log(`🔗 Page URL: ${pageUrl || 'No URL provided'}`);
@@ -384,7 +384,7 @@ app.post("/pushPlaylist", async (req, res) => {
       
       // 创建帖子的配置
       const threadConfig = {
-        name: title || "New Playlist",
+        name: title || "New Triplist",
         message: messageData
       };
       
@@ -427,10 +427,10 @@ app.post("/pushPlaylist", async (req, res) => {
       throw new Error(`Unsupported channel type: ${channel.type}. Please use a text channel or forum channel.`);
     }
 
-      console.log(`📤 Playlist pushed successfully to ${city || 'default'} channel: ${title}`);
+      console.log(`📤 Triplist pushed successfully to ${city || 'default'} channel: ${title}`);
     res.json({ 
       success: true, 
-      message: `Playlist pushed to Discord ${city || 'default'} channel with direct website link`,
+      message: `Triplist pushed to Discord ${city || 'default'} channel with direct website link`,
       city: city,
       channelId: channelId,
       pageUrl: pageUrl,
@@ -568,3 +568,5 @@ app.listen(PORT, () => {
     console.log(`⚠️  Warning: ${unsetChannels.length} city channels are not configured`);
   }
 });
+
+// 注意：虽然API endpoint仍然是 /pushPlaylist (保持向后兼容)，但现在处理的是 Triplist 数据
