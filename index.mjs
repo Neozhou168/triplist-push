@@ -134,8 +134,8 @@ function getCityChannelStatus() {
 }
 
 // 创建富文本embed
-function createPlaylistEmbed(playlistData) {
-  const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues = [], relatedRoutes = [] } = playlistData;
+function createTriplistEmbed(triplistData) {
+  const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues = [], relatedRoutes = [] } = triplistData;
   
   const embed = new EmbedBuilder()
     .setTitle(title || "Untitled Triplist")
@@ -295,9 +295,9 @@ function findBestTag(availableTags, travelType, city, title, description) {
 }
 
 // 主要API端点 - 推送triplist到Discord
-app.post("/pushPlaylist", async (req, res) => {
-  const playlistData = req.body;
-  const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues, relatedRoutes } = playlistData;
+app.post("/pushTriplist", async (req, res) => {
+  const triplistData = req.body;
+  const { title, description, city, travelType, imageUrl, pageUrl, relatedVenues, relatedRoutes } = triplistData;
 
   try {
     // 检查Bot是否准备好
@@ -355,7 +355,7 @@ app.post("/pushPlaylist", async (req, res) => {
     console.log(`🔧 Has SEND_MESSAGES:`, permissions.has('SendMessages'));
 
     // 创建富文本embed
-    const embed = createPlaylistEmbed(playlistData);
+    const embed = createTriplistEmbed(triplistData);
     
     // 创建直接跳转按钮
     const components = createDirectLinkButtons(relatedVenues, relatedRoutes, pageUrl);
@@ -427,7 +427,7 @@ app.post("/pushPlaylist", async (req, res) => {
       throw new Error(`Unsupported channel type: ${channel.type}. Please use a text channel or forum channel.`);
     }
 
-      console.log(`📤 Triplist pushed successfully to ${city || 'default'} channel: ${title}`);
+    console.log(`📤 Triplist pushed successfully to ${city || 'default'} channel: ${title}`);
     res.json({ 
       success: true, 
       message: `Triplist pushed to Discord ${city || 'default'} channel with direct website link`,
@@ -454,6 +454,14 @@ app.post("/pushPlaylist", async (req, res) => {
       details: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
+});
+
+// 为了向后兼容，保留旧的API端点
+app.post("/pushPlaylist", async (req, res) => {
+  console.log("⚠️ Using deprecated endpoint /pushPlaylist, please update to /pushTriplist");
+  // 直接调用新的处理函数，但使用旧的数据结构
+  req.url = '/pushTriplist';
+  return app._router.handle(req, res);
 });
 
 // 管理API - 查看城市频道配置
@@ -531,6 +539,7 @@ app.get("/test/city/:cityName", (req, res) => {
     availableCities: Object.keys(CITY_CHANNELS).filter(key => key !== 'default')
   });
 });
+
 app.get("/venue/:id", async (req, res) => {
   res.json({
     id: req.params.id,
@@ -569,4 +578,4 @@ app.listen(PORT, () => {
   }
 });
 
-// 注意：虽然API endpoint仍然是 /pushPlaylist (保持向后兼容)，但现在处理的是 Triplist 数据
+// 注意：主要API endpoint现在是 /pushTriplist，但保留 /pushPlaylist 用于向后兼容
