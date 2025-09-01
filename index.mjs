@@ -75,7 +75,7 @@ const CITY_CHANNELS = {
   '重庆': process.env.CHONGQING_CHANNEL,
   '天津': process.env.TIANJIN_CHANNEL,
   
-  // 英文城市名映射
+  // 英文城市名映射 - 支持Xi'an的多种格式
   'beijing': process.env.BEIJING_CHANNEL,
   'shanghai': process.env.SHANGHAI_CHANNEL,
   'chengdu': process.env.CHENGDU_CHANNEL,
@@ -83,7 +83,10 @@ const CITY_CHANNELS = {
   'shenzhen': process.env.SHENZHEN_CHANNEL,
   'hangzhou': process.env.HANGZHOU_CHANNEL,
   'nanjing': process.env.NANJING_CHANNEL,
-  'xian': process.env.XIAN_CHANNEL,
+  'xian': process.env.XIAN_CHANNEL,          // 原格式
+  'xi\'an': process.env.XIAN_CHANNEL,        // 带撇号格式
+  'xi-an': process.env.XIAN_CHANNEL,         // 连字符格式  
+  'xi_an': process.env.XIAN_CHANNEL,         // 下划线格式
   'chongqing': process.env.CHONGQING_CHANNEL,
   'tianjin': process.env.TIANJIN_CHANNEL,
   
@@ -98,8 +101,20 @@ function getChannelIdByCity(city) {
     return CITY_CHANNELS.default;
   }
   
-  // 清理城市名称（去除空格、特殊字符，转为小写）
-  const cleanCity = city.trim().toLowerCase().replace(/[^a-z\u4e00-\u9fa5]/g, '');
+  // 清理城市名称，特别处理Xi'an格式
+  let cleanCity = city.trim().toLowerCase();
+  
+  // 特殊处理Xi'an的各种格式，统一转换为标准格式进行匹配
+  if (cleanCity.includes('xi') && cleanCity.includes('an')) {
+    // 移除所有非字母字符，然后重新组合
+    const normalized = cleanCity.replace(/[^a-z\u4e00-\u9fa5]/g, '');
+    if (normalized === 'xian') {
+      cleanCity = 'xian';
+    }
+  } else {
+    // 其他城市的常规处理
+    cleanCity = cleanCity.replace(/[^a-z\u4e00-\u9fa5]/g, '');
+  }
   
   // 直接匹配
   if (CITY_CHANNELS[cleanCity]) {
@@ -107,11 +122,22 @@ function getChannelIdByCity(city) {
     return CITY_CHANNELS[cleanCity];
   }
   
+  // Xi'an特殊格式的额外匹配尝试
+  const originalInput = city.trim().toLowerCase();
+  const xiAnVariants = ['xi\'an', 'xi-an', 'xi_an', 'xian'];
+  
+  for (const variant of xiAnVariants) {
+    if (CITY_CHANNELS[variant] && (originalInput === variant || originalInput.replace(/[^a-z]/g, '') === variant.replace(/[^a-z]/g, ''))) {
+      console.log(`📍 Found Xi'an variant match for city: ${city} -> ${variant}`);
+      return CITY_CHANNELS[variant];
+    }
+  }
+  
   // 模糊匹配（检查是否包含关键词）
   const cityKeys = Object.keys(CITY_CHANNELS);
   const matchedKey = cityKeys.find(key => {
     if (key === 'default') return false;
-    return cleanCity.includes(key) || key.includes(cleanCity);
+    return cleanCity.includes(key.replace(/[^a-z\u4e00-\u9fa5]/g, '')) || key.replace(/[^a-z\u4e00-\u9fa5]/g, '').includes(cleanCity);
   });
   
   if (matchedKey) {
